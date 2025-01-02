@@ -18,11 +18,10 @@ export default function Home() {
 
     const formData = new FormData();
     formData.append("tr", tr);
+    formData.append("modelo", modelo);
     formData.append("filename", file.name);
     formData.append("file", file);
     formData.append("mimeType", file.type);
-
-    formData.append("modelo", modelo);
 
     console.log("Formdata ", formData);
     // Inspecionar o conteúdo do FormData
