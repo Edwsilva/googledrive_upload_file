@@ -37,8 +37,6 @@
 //       auth: oauth2Client,
 //     });
 
-   
-
 //     // Middleware do multer para lidar com upload de arquivos
 //     upload.single("file")(req, res, async (err) => {
 //       if (err) {
@@ -126,87 +124,204 @@ export const config = {
   },
 };
 
+async function uploadFile(accessToken, file, fileName, parentFolderId) {
+  const oauth2Client = new google.auth.OAuth2();
+  oauth2Client.setCredentials({
+    access_token: accessToken,
+  });
+
+  const drive = google.drive({
+    version: "v3",
+    auth: oauth2Client,
+  });
+
+  const fileMetadata = {
+    name: fileName,
+    parents: [parentFolderId], // Pasta no Google Drive
+  };
+
+  const media = {
+    mimeType: file.mimetype,
+    body: fs.createReadStream(file.path),
+  };
+
+  const response = await drive.files.create({
+    requestBody: fileMetadata,
+    media: media,
+    fields: "id, webViewLink, webContentLink",
+  });
+
+  // Tornar o arquivo público
+  await drive.permissions.create({
+    fileId: response.data.id,
+    requestBody: { role: "reader", type: "anyone" },
+  });
+
+  return response.data;
+}
+
+// export default async function handler(req, res) {
+//   if (req.method !== "POST") {
+//     return res.status(405).json({ message: "Método não permitido" });
+//   }
+
+//   try {
+//     // Obtém o token usando o middleware JWT do NextAuth
+//     const token = await getToken({ req, secret: process.env.SECRET });
+//     //const token = await getToken({ req });
+//     if (!token?.accessToken) {
+//       return res
+//         .status(401)
+//         .json({ message: "Não autenticado. Access token não encontrado." });
+//     }
+
+//     // Configurando o cliente OAuth2 do Google
+//     const oauth2Client = new google.auth.OAuth2();
+//     oauth2Client.setCredentials({
+//       access_token: token.accessToken,
+//     });
+
+//     const drive = google.drive({
+//       version: "v3",
+//       auth: oauth2Client,
+//     });
+
+//     // Middleware do multer para lidar com upload de arquivos
+//     upload(req, res, async (err) => {
+//       if (err) {
+//         console.error("Erro no processamento dos arquivos:", err);
+//         return res
+//           .status(500)
+//           .json({ message: "Erro ao processar os uploads" });
+//       }
+
+//       // Verifica se os arquivos foram enviados
+//       const trFile = req.files["trFile"]?.[0];
+//       const processoFile = req.files["processoFile"]?.[0];
+
+//       if (!trFile || !processoFile) {
+//         return res
+//           .status(400)
+//           .json({ message: "Arquivos TR ou PROCESSO não enviados." });
+//       }
+
+//       try {
+//         // Para o arquivo TR
+//         const trMetadata = {
+//           name: `TR-${req.body.tr}`,
+//           parents: ["1zXdnL3cN3k9PCWslS0znuS9PtxuAI3bN"], // Pasta no Google Drive
+//         };
+//         const trMedia = {
+//           mimeType: trFile.mimetype,
+//           body: fs.createReadStream(trFile.path),
+//         };
+
+//         const trUploaded = await drive.files.create({
+//           requestBody: trMetadata,
+//           media: trMedia,
+//           fields: "id, webViewLink, webContentLink",
+//         });
+
+//         // Para o arquivo de Processo
+//         const processoMetadata = {
+//           name: `PROCESSO-${req.body.modelo}`,
+//           parents: ["1TJeVu2Vq0s5zBiYD5YJY5K2P0nTqSAeB"], // Pasta no Google Drive
+//         };
+//         const processoMedia = {
+//           mimeType: processoFile.mimetype,
+//           body: fs.createReadStream(processoFile.path),
+//         };
+
+//         const processoUploaded = await drive.files.create({
+//           requestBody: processoMetadata,
+//           media: processoMedia,
+//           fields: "id, webViewLink, webContentLink",
+//         });
+
+//         // Tornar ambos os arquivos públicos
+//         await drive.permissions.create({
+//           fileId: trUploaded.data.id,
+//           requestBody: { role: "reader", type: "anyone" },
+//         });
+
+//         await drive.permissions.create({
+//           fileId: processoUploaded.data.id,
+//           requestBody: { role: "reader", type: "anyone" },
+//         });
+
+//         // Remover arquivos temporários após o upload
+//         fs.unlinkSync(trFile.path);
+//         fs.unlinkSync(processoFile.path);
+
+//         res.status(200).json({
+//           trFile: {
+//             id: trUploaded.data.id,
+//             webViewLink: trUploaded.data.webViewLink,
+//             webContentLink: trUploaded.data.webContentLink,
+//           },
+//           processoFile: {
+//             id: processoUploaded.data.id,
+//             webViewLink: processoUploaded.data.webViewLink,
+//             webContentLink: processoUploaded.data.webContentLink,
+//           },
+//         });
+//       } catch (error) {
+//         console.error("Erro no upload para o Google Drive:", error.message);
+//         res.status(500).json({ error: error.message });
+//       }
+//     });
+//   } catch (error) {
+//     console.error(
+//       "Erro na autenticação ou no processo de upload:",
+//       error.message
+//     );
+//     res.status(500).json({ error: error.message });
+//   }
+// }
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Método não permitido" });
   }
 
   try {
-    // Obtém o token usando o middleware JWT do NextAuth
     const token = await getToken({ req, secret: process.env.SECRET });
     if (!token?.accessToken) {
-      return res.status(401).json({ message: "Não autenticado. Access token não encontrado." });
+      return res
+        .status(401)
+        .json({ message: "Não autenticado. Access token não encontrado." });
     }
 
-    // Configurando o cliente OAuth2 do Google
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({
-      access_token: token.accessToken,
-    });
-
-    const drive = google.drive({
-      version: "v3",
-      auth: oauth2Client,
-    });
-
-    // Middleware do multer para lidar com upload de arquivos
     upload(req, res, async (err) => {
       if (err) {
         console.error("Erro no processamento dos arquivos:", err);
-        return res.status(500).json({ message: "Erro ao processar os uploads" });
+        return res
+          .status(500)
+          .json({ message: "Erro ao processar os uploads" });
       }
 
-      // Verifica se os arquivos foram enviados
       const trFile = req.files["trFile"]?.[0];
       const processoFile = req.files["processoFile"]?.[0];
 
       if (!trFile || !processoFile) {
-        return res.status(400).json({ message: "Arquivos TR ou PROCESSO não enviados." });
+        return res
+          .status(400)
+          .json({ message: "Arquivos TR ou PROCESSO não enviados." });
       }
 
       try {
-        // Para o arquivo TR
-        const trMetadata = {
-          name: `TR-${req.body.tr}`,
-          parents: ["1zXdnL3cN3k9PCWslS0znuS9PtxuAI3bN"], // Pasta no Google Drive
-        };
-        const trMedia = {
-          mimeType: trFile.mimetype,
-          body: fs.createReadStream(trFile.path),
-        };
+        const trUploaded = await uploadFile(
+          token.accessToken,
+          trFile,
+          `TR-${req.body.tr}`,
+          "1zXdnL3cN3k9PCWslS0znuS9PtxuAI3bN"
+        );
 
-        const trUploaded = await drive.files.create({
-          requestBody: trMetadata,
-          media: trMedia,
-          fields: "id, webViewLink, webContentLink",
-        });
-
-        // Para o arquivo de Processo
-        const processoMetadata = {
-          name: `PROCESSO-${req.body.modelo}`,
-          parents: ["1TJeVu2Vq0s5zBiYD5YJY5K2P0nTqSAeB"], // Pasta no Google Drive
-        };
-        const processoMedia = {
-          mimeType: processoFile.mimetype,
-          body: fs.createReadStream(processoFile.path),
-        };
-
-        const processoUploaded = await drive.files.create({
-          requestBody: processoMetadata,
-          media: processoMedia,
-          fields: "id, webViewLink, webContentLink",
-        });
-
-        // Tornar ambos os arquivos públicos
-        await drive.permissions.create({
-          fileId: trUploaded.data.id,
-          requestBody: { role: "reader", type: "anyone" },
-        });
-
-        await drive.permissions.create({
-          fileId: processoUploaded.data.id,
-          requestBody: { role: "reader", type: "anyone" },
-        });
+        const processoUploaded = await uploadFile(
+          token.accessToken,
+          processoFile,
+          `PROCESSO-${req.body.modelo}`,
+          "1TJeVu2Vq0s5zBiYD5YJY5K2P0nTqSAeB"
+        );
 
         // Remover arquivos temporários após o upload
         fs.unlinkSync(trFile.path);
@@ -214,14 +329,14 @@ export default async function handler(req, res) {
 
         res.status(200).json({
           trFile: {
-            id: trUploaded.data.id,
-            webViewLink: trUploaded.data.webViewLink,
-            webContentLink: trUploaded.data.webContentLink,
+            id: trUploaded.id,
+            webViewLink: trUploaded.webViewLink,
+            webContentLink: trUploaded.webContentLink,
           },
           processoFile: {
-            id: processoUploaded.data.id,
-            webViewLink: processoUploaded.data.webViewLink,
-            webContentLink: processoUploaded.data.webContentLink,
+            id: processoUploaded.id,
+            webViewLink: processoUploaded.webViewLink,
+            webContentLink: processoUploaded.webContentLink,
           },
         });
       } catch (error) {
@@ -230,7 +345,10 @@ export default async function handler(req, res) {
       }
     });
   } catch (error) {
-    console.error("Erro na autenticação ou no processo de upload:", error.message);
+    console.error(
+      "Erro na autenticação ou no processo de upload:",
+      error.message
+    );
     res.status(500).json({ error: error.message });
   }
 }
